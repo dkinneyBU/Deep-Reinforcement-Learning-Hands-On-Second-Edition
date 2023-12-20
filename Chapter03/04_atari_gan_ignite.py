@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Imports, global variables, and constants
 import random
 import argparse
 import cv2
@@ -12,8 +13,8 @@ from ignite.contrib.handlers import tensorboard_logger as tb_logger
 
 import torchvision.utils as vutils
 
-import gym
-import gym.spaces
+import gymnasium as gym
+import gymnasium.spaces as gym_spaces
 
 import numpy as np
 
@@ -32,7 +33,7 @@ LEARNING_RATE = 0.0001
 REPORT_EVERY_ITER = 100
 SAVE_IMAGE_EVERY_ITER = 1000
 
-
+# Class & Function Definitions
 class InputWrapper(gym.ObservationWrapper):
     """
     Preprocessing of input numpy array:
@@ -41,14 +42,14 @@ class InputWrapper(gym.ObservationWrapper):
     """
     def __init__(self, *args):
         super(InputWrapper, self).__init__(*args)
-        assert isinstance(self.observation_space, gym.spaces.Box)
+        assert isinstance(self.observation_space, gym_spaces.Box)
         old_space = self.observation_space
-        self.observation_space = gym.spaces.Box(self.observation(old_space.low), self.observation(old_space.high),
+        self.observation_space = gym_spaces.Box(self.observation(old_space.low), self.observation(old_space.high),
                                                 dtype=np.float32)
 
     def observation(self, observation):
         # resize image
-        new_obs = cv2.resize(observation, (IMAGE_SIZE, IMAGE_SIZE))
+        new_obs = cv2.resize(observation[0], (IMAGE_SIZE, IMAGE_SIZE, 3))
         # transform (210, 160, 3) -> (3, 210, 160)
         new_obs = np.moveaxis(new_obs, 2, 0)
         return new_obs.astype(np.float32)
@@ -120,7 +121,7 @@ def iterate_batches(envs, batch_size=BATCH_SIZE):
 
     while True:
         e = next(env_gen)
-        obs, reward, is_done, _ = e.step(e.action_space.sample())
+        obs, reward, is_done, truncated, _ = e.step(e.action_space.sample())
         if np.mean(obs) > 0.01:
             batch.append(obs)
         if len(batch) == batch_size:
@@ -132,13 +133,17 @@ def iterate_batches(envs, batch_size=BATCH_SIZE):
             e.reset()
 
 
+# Main
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cuda", default=False, action='store_true', help="Enable cuda computation")
     args = parser.parse_args()
 
-    device = torch.device("cuda" if args.cuda else "cpu")
-    envs = [InputWrapper(gym.make(name)) for name in ('Breakout-v0', 'AirRaid-v0', 'Pong-v0')]
+    # dgk: force cuda:1
+    # device = torch.device("cuda" if args.cuda else "cpu")
+    device = "cuda:1"
+    envs = [InputWrapper(gym.make(name)) 
+            for name in ('Breakout-v4', 'AirRaid-v4', 'Pong-v4')]
     input_shape = envs[0].observation_space.shape
 
     net_discr = Discriminator(input_shape=input_shape).to(device)
@@ -187,6 +192,8 @@ if __name__ == "__main__":
             trainer.tb.writer.flush()
         return dis_loss.item(), gen_loss.item()
 
+    
+    # Engine
     engine = Engine(process_batch)
     tb = tb_logger.TensorboardLogger(log_dir=None)
     engine.tb = tb
@@ -209,3 +216,5 @@ if __name__ == "__main__":
                      trainer.state.metrics['avg_loss_dis'])
 
     engine.run(data=iterate_batches(envs))
+
+# %%
