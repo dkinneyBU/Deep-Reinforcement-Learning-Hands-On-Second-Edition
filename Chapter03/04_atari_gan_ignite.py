@@ -3,6 +3,7 @@
 import random
 import argparse
 import cv2
+import scipy
 
 import torch
 import torch.nn as nn
@@ -49,11 +50,12 @@ class InputWrapper(gym.ObservationWrapper):
 
     def observation(self, observation):
         # resize image
-        new_obs = cv2.resize(observation[0], (IMAGE_SIZE, IMAGE_SIZE, 3))
-        # transform (210, 160, 3) -> (3, 210, 160)
-        new_obs = np.moveaxis(new_obs, 2, 0)
-        return new_obs.astype(np.float32)
-
+        # new_obs = cv2.resize(observation[0], (IMAGE_SIZE, IMAGE_SIZE, 3))
+        # # transform (210, 160, 3) -> (3, 210, 160)
+        # new_obs = np.moveaxis(new_obs, 2, 0)
+        # return new_obs.astype(np.float32)
+        new_obs = np.transpose(np.resize(observation[0], (IMAGE_SIZE, IMAGE_SIZE, 3)), (2, 0, 1)).astype('float32')
+        return new_obs
 
 class Discriminator(nn.Module):
     def __init__(self, input_shape):
@@ -143,7 +145,8 @@ if __name__ == "__main__":
     # device = torch.device("cuda" if args.cuda else "cpu")
     device = "cuda:1"
     envs = [InputWrapper(gym.make(name)) 
-            for name in ('Breakout-v4', 'AirRaid-v4', 'Pong-v4')]
+            for name in ('Breakout-v4', 'AirRaid-v4')] #, 'Pong-v4')]
+  
     input_shape = envs[0].observation_space.shape
 
     net_discr = Discriminator(input_shape=input_shape).to(device)
