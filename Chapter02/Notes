@@ -1,0 +1,3 @@
+import gymnasium as gym
+obs, reward, done, truncated, _ = env.step(action)
+pip install gymnasium[accept-rom-license]

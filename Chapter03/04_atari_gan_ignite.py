@@ -2,8 +2,6 @@
 # Imports, global variables, and constants
 import random
 import argparse
-import cv2
-import scipy
 
 import torch
 import torch.nn as nn
@@ -45,8 +43,10 @@ class InputWrapper(gym.ObservationWrapper):
         super(InputWrapper, self).__init__(*args)
         assert isinstance(self.observation_space, gym_spaces.Box)
         old_space = self.observation_space
-        self.observation_space = gym_spaces.Box(self.observation(old_space.low), self.observation(old_space.high),
-                                                dtype=np.float32)
+        self.observation_space = gym_spaces.Box(
+            self.observation(old_space.low), 
+            self.observation(old_space.high),
+            dtype=np.float32)
 
     def observation(self, observation):
         # resize image

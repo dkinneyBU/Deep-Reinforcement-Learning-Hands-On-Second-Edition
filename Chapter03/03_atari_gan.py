@@ -10,8 +10,8 @@ from tensorboardX import SummaryWriter
 
 import torchvision.utils as vutils
 
-import gym
-import gym.spaces
+import gymnasium as gym
+import gymnasium.spaces as gym_spaces
 
 import numpy as np
 
@@ -39,20 +39,22 @@ class InputWrapper(gym.ObservationWrapper):
     """
     def __init__(self, *args):
         super(InputWrapper, self).__init__(*args)
-        assert isinstance(self.observation_space, gym.spaces.Box)
+        assert isinstance(self.observation_space, gym_spaces.Box)
         old_space = self.observation_space
-        self.observation_space = gym.spaces.Box(
+        self.observation_space = gym_spaces.Box(
             self.observation(old_space.low),
             self.observation(old_space.high),
             dtype=np.float32)
 
     def observation(self, observation):
         # resize image
-        new_obs = cv2.resize(
-            observation, (IMAGE_SIZE, IMAGE_SIZE))
-        # transform (210, 160, 3) -> (3, 210, 160)
-        new_obs = np.moveaxis(new_obs, 2, 0)
-        return new_obs.astype(np.float32)
+        # new_obs = cv2.resize(
+        #     observation, (IMAGE_SIZE, IMAGE_SIZE))
+        # # transform (210, 160, 3) -> (3, 210, 160)
+        # new_obs = np.moveaxis(new_obs, 2, 0)
+        # return new_obs.astype(np.float32)
+        new_obs = np.transpose(np.resize(observation[0], (IMAGE_SIZE, IMAGE_SIZE, 3)), (2, 0, 1)).astype('float32')
+        return new_obs
 
 
 class Discriminator(nn.Module):
@@ -121,7 +123,7 @@ def iterate_batches(envs, batch_size=BATCH_SIZE):
 
     while True:
         e = next(env_gen)
-        obs, reward, is_done, _ = e.step(e.action_space.sample())
+        obs, reward, is_done, tuncated, _ = e.step(e.action_space.sample())
         if np.mean(obs) > 0.01:
             batch.append(obs)
         if len(batch) == batch_size:
@@ -140,10 +142,12 @@ if __name__ == "__main__":
         help="Enable cuda computation")
     args = parser.parse_args()
 
-    device = torch.device("cuda" if args.cuda else "cpu")
+    # force it to run on cuda 1 (the 3060)
+    # device = torch.device("cuda" if args.cuda else "cpu")
+    device = "cuda:1"
     envs = [
         InputWrapper(gym.make(name))
-        for name in ('Breakout-v0', 'AirRaid-v0', 'Pong-v0')
+        for name in ('Breakout-v4', 'AirRaid-v4') #, 'Pong-v4')
     ]
     input_shape = envs[0].observation_space.shape
 
